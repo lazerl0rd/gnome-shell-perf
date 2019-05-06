@@ -67,10 +67,22 @@ struct _StTheme
   GSList *custom_stylesheets;
 
   GHashTable *stylesheets_by_file;
-  GHashTable *files_by_stylesheet;
 
   CRCascade *cascade;
 };
+
+typedef struct _StyleSheetData
+{
+  GFile *file;
+  gboolean extension_stylesheet;
+} StyleSheetData;
+
+static void
+stylesheet_data_free (StyleSheetData *stylesheet_data)
+{
+  g_clear_object (&stylesheet_data->file);
+  g_free (stylesheet_data);
+}
 
 enum
 {
@@ -110,9 +122,10 @@ file_equal0 (GFile *file1,
 static void
 st_theme_init (StTheme *theme)
 {
-  theme->stylesheets_by_file = g_hash_table_new_full (g_file_hash, (GEqualFunc) g_file_equal,
-                                                      (GDestroyNotify)g_object_unref, (GDestroyNotify)cr_stylesheet_unref);
-  theme->files_by_stylesheet = g_hash_table_new (g_direct_hash, g_direct_equal);
+  theme->stylesheets_by_file =
+    g_hash_table_new_full (g_file_hash, (GEqualFunc) g_file_equal,
+                           (GDestroyNotify) g_object_unref,
+                           (GDestroyNotify) cr_stylesheet_unref);
 }
 
 static void
@@ -206,9 +219,6 @@ parse_stylesheet (GFile   *file,
       return NULL;
     }
 
-  /* Extension stylesheet */
-  cr_stylesheet_set_app_data (stylesheet, GUINT_TO_POINTER (FALSE), NULL);
-
   return stylesheet;
 }
 
@@ -235,19 +245,28 @@ parse_stylesheet_nofail (GFile *file)
   return result;
 }
 
-static void
+static gboolean
 insert_stylesheet (StTheme      *theme,
                    GFile        *file,
                    CRStyleSheet *stylesheet)
 {
+  StyleSheetData *stylesheet_data;
+
   if (stylesheet == NULL)
-    return;
+    return FALSE;
 
-  g_object_ref (file);
-  cr_stylesheet_ref (stylesheet);
+  if (g_hash_table_contains (theme->stylesheets_by_file, file))
+    return FALSE;
 
-  g_hash_table_insert (theme->stylesheets_by_file, file, stylesheet);
-  g_hash_table_insert (theme->files_by_stylesheet, stylesheet, file);
+  stylesheet_data = g_new0 (StyleSheetData, 1);
+  stylesheet_data->file = g_object_ref (file);
+
+  cr_stylesheet_set_app_data (stylesheet, stylesheet_data,
+                              (GDestroyNotify) stylesheet_data_free);
+
+  g_hash_table_insert (theme->stylesheets_by_file,
+                       g_object_ref (file), cr_stylesheet_ref (stylesheet));
+  return TRUE;
 }
 
 /**
@@ -266,14 +285,15 @@ st_theme_load_stylesheet (StTheme    *theme,
                           GError    **error)
 {
   g_autoptr(CRStyleSheet) stylesheet = NULL;
+  StyleSheetData *stylesheet_data;
 
   stylesheet = parse_stylesheet (file, error);
-  if (!stylesheet)
+  if (!insert_stylesheet (theme, file, stylesheet))
     return FALSE;
 
-  cr_stylesheet_set_app_data (stylesheet, GUINT_TO_POINTER (TRUE), NULL);
+  stylesheet_data = cr_stylesheet_get_app_data (stylesheet);
+  stylesheet_data->extension_stylesheet = TRUE;
 
-  insert_stylesheet (theme, file, stylesheet);
   theme->custom_stylesheets = g_slist_prepend (theme->custom_stylesheets,
                                                g_steal_pointer (&stylesheet));
   g_signal_emit (theme, signals[STYLESHEETS_CHANGED], 0);
@@ -302,16 +322,14 @@ st_theme_unload_stylesheet (StTheme    *theme,
   if (!g_slist_find (theme->custom_stylesheets, stylesheet))
     return;
 
+  g_hash_table_remove (theme->stylesheets_by_file, file);
   theme->custom_stylesheets = g_slist_remove (theme->custom_stylesheets, stylesheet);
 
-  g_signal_emit (theme, signals[STYLESHEETS_CHANGED], 0);
-
-  /* We need to remove the entry from the hashtable after emitting the signal
-   * since we might still access the files_by_stylesheet hashtable in
-   * _st_theme_resolve_url() during the signal emission.
+  /* We need to unref the stylesheet after emitting the signal since we might
+   * still access the stylesheet in _st_theme_resolve_url() during the signal
+   * emission.
    */
-  g_hash_table_remove (theme->stylesheets_by_file, file);
-  g_hash_table_remove (theme->files_by_stylesheet, stylesheet);
+  g_signal_emit (theme, signals[STYLESHEETS_CHANGED], 0);
   cr_stylesheet_unref (stylesheet);
 }
 
@@ -333,9 +351,10 @@ st_theme_get_custom_stylesheets (StTheme *theme)
   for (iter = theme->custom_stylesheets; iter; iter = iter->next)
     {
       CRStyleSheet *stylesheet = iter->data;
-      GFile *file = g_hash_table_lookup (theme->files_by_stylesheet, stylesheet);
+      StyleSheetData *stylesheet_data = cr_stylesheet_get_app_data (stylesheet);
 
-      result = g_slist_prepend (result, g_object_ref (file));
+      if (stylesheet_data && stylesheet_data->file)
+        result = g_slist_prepend (result, g_object_ref (stylesheet_data->file));
     }
 
   return result;
@@ -377,7 +396,6 @@ st_theme_finalize (GObject * object)
   theme->custom_stylesheets = NULL;
 
   g_hash_table_destroy (theme->stylesheets_by_file);
-  g_hash_table_destroy (theme->files_by_stylesheet);
 
   g_clear_object (&theme->application_stylesheet);
   g_clear_object (&theme->theme_stylesheet);
@@ -894,18 +912,18 @@ add_matched_properties (StTheme      *a_this,
 
                 if (import_rule->url->stryng && import_rule->url->stryng->str)
                   {
+                    g_autoptr(CRStyleSheet) sheet = NULL;
+
                     file = _st_theme_resolve_url (a_this,
                                                   a_nodesheet,
                                                   import_rule->url->stryng->str);
-                    import_rule->sheet = parse_stylesheet (file, NULL);
+                    sheet = parse_stylesheet (file, NULL);
+
+                    if (insert_stylesheet (a_this, file, sheet))
+                      import_rule->sheet = sheet;
                   }
 
-                if (import_rule->sheet)
-                  {
-                    insert_stylesheet (a_this, file, import_rule->sheet);
-                    cr_stylesheet_unref (import_rule->sheet);
-                  }
-                else
+                if (!import_rule->sheet)
                   {
                     /* Set a marker to avoid repeatedly trying to parse a non-existent or
                      * broken stylesheet
@@ -981,12 +999,12 @@ get_origin (const CRDeclaration * decl)
 {
   CRStyleSheet *stylesheet = decl->parent_statement->parent_sheet;
   enum CRStyleOrigin origin = stylesheet->origin;
-  gboolean is_extension_sheet = GPOINTER_TO_UINT (cr_stylesheet_get_app_data (stylesheet));
+  StyleSheetData *sheet_data = cr_stylesheet_get_app_data (stylesheet);
 
   if (decl->important)
     origin += ORIGIN_OFFSET_IMPORTANT;
 
-  if (is_extension_sheet)
+  if (sheet_data && sheet_data->extension_stylesheet)
     origin += ORIGIN_OFFSET_EXTENSION;
 
   return origin;
@@ -1065,8 +1083,9 @@ _st_theme_resolve_url (StTheme      *theme,
   else if (base_stylesheet != NULL)
     {
       GFile *base_file = NULL, *parent;
+      StyleSheetData *stylesheet_data = cr_stylesheet_get_app_data (base_stylesheet);
 
-      base_file = g_hash_table_lookup (theme->files_by_stylesheet, base_stylesheet);
+      base_file = stylesheet_data->file;
 
       /* This is an internal function, if we get here with
          a bad @base_stylesheet we have a problem. */
