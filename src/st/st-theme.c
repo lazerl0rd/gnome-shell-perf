@@ -392,17 +392,13 @@ st_theme_finalize (GObject * object)
 {
   StTheme *theme = ST_THEME (object);
 
-  g_hash_table_destroy (theme->stylesheets_by_file);
+  g_clear_pointer (&theme->stylesheets_by_file, g_hash_table_destroy);
 
   g_clear_object (&theme->application_stylesheet);
   g_clear_object (&theme->theme_stylesheet);
   g_clear_object (&theme->default_stylesheet);
 
-  if (theme->cascade)
-    {
-      cr_cascade_unref (theme->cascade);
-      theme->cascade = NULL;
-    }
+  g_clear_pointer (&theme->cascade, cr_cascade_unref);
 
   G_OBJECT_CLASS (st_theme_parent_class)->finalize (object);
 }
