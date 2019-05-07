@@ -64,7 +64,6 @@ struct _StTheme
   GFile *application_stylesheet;
   GFile *default_stylesheet;
   GFile *theme_stylesheet;
-  GSList *custom_stylesheets;
 
   GHashTable *stylesheets_by_file;
 
@@ -294,8 +293,6 @@ st_theme_load_stylesheet (StTheme    *theme,
   stylesheet_data = cr_stylesheet_get_app_data (stylesheet);
   stylesheet_data->extension_stylesheet = TRUE;
 
-  theme->custom_stylesheets = g_slist_prepend (theme->custom_stylesheets,
-                                               g_steal_pointer (&stylesheet));
   g_signal_emit (theme, signals[STYLESHEETS_CHANGED], 0);
 
   return TRUE;
@@ -314,21 +311,22 @@ st_theme_unload_stylesheet (StTheme    *theme,
                             GFile      *file)
 {
   CRStyleSheet *stylesheet;
+  StyleSheetData *stylesheet_data;
 
   stylesheet = g_hash_table_lookup (theme->stylesheets_by_file, file);
   if (!stylesheet)
     return;
 
-  if (!g_slist_find (theme->custom_stylesheets, stylesheet))
+  stylesheet_data = cr_stylesheet_get_app_data (stylesheet);
+  if (!stylesheet_data || !stylesheet_data->extension_stylesheet)
     return;
 
-  g_hash_table_remove (theme->stylesheets_by_file, file);
-  theme->custom_stylesheets = g_slist_remove (theme->custom_stylesheets, stylesheet);
-
-  /* We need to unref the stylesheet after emitting the signal since we might
+  /* We need to keep a reference while emitting the signal since we might
    * still access the stylesheet in _st_theme_resolve_url() during the signal
    * emission.
    */
+  cr_stylesheet_ref (stylesheet);
+  g_hash_table_remove (theme->stylesheets_by_file, file);
   g_signal_emit (theme, signals[STYLESHEETS_CHANGED], 0);
   cr_stylesheet_unref (stylesheet);
 }
@@ -346,14 +344,17 @@ GSList*
 st_theme_get_custom_stylesheets (StTheme *theme)
 {
   GSList *result = NULL;
-  GSList *iter;
+  GHashTableIter iter;
+  gpointer value;
 
-  for (iter = theme->custom_stylesheets; iter; iter = iter->next)
+  g_hash_table_iter_init (&iter, theme->stylesheets_by_file);
+
+  while (g_hash_table_iter_next (&iter, NULL, &value))
     {
-      CRStyleSheet *stylesheet = iter->data;
+      CRStyleSheet *stylesheet = value;
       StyleSheetData *stylesheet_data = cr_stylesheet_get_app_data (stylesheet);
 
-      if (stylesheet_data && stylesheet_data->file)
+      if (stylesheet_data && stylesheet_data->extension_stylesheet)
         result = g_slist_prepend (result, g_object_ref (stylesheet_data->file));
     }
 
@@ -390,10 +391,6 @@ static void
 st_theme_finalize (GObject * object)
 {
   StTheme *theme = ST_THEME (object);
-
-  g_slist_foreach (theme->custom_stylesheets, (GFunc) cr_stylesheet_unref, NULL);
-  g_slist_free (theme->custom_stylesheets);
-  theme->custom_stylesheets = NULL;
 
   g_hash_table_destroy (theme->stylesheets_by_file);
 
@@ -1039,7 +1036,7 @@ _st_theme_get_matched_properties (StTheme        *theme,
   enum CRStyleOrigin origin = 0;
   CRStyleSheet *sheet = NULL;
   GPtrArray *props = g_ptr_array_new ();
-  GSList *iter;
+  GHashTableIter iter;
 
   g_return_val_if_fail (ST_IS_THEME (theme), NULL);
   g_return_val_if_fail (ST_IS_THEME_NODE (node), NULL);
@@ -1053,8 +1050,14 @@ _st_theme_get_matched_properties (StTheme        *theme,
       add_matched_properties (theme, sheet, node, props);
     }
 
-  for (iter = theme->custom_stylesheets; iter; iter = iter->next)
-    add_matched_properties (theme, iter->data, node, props);
+  g_hash_table_iter_init (&iter, theme->stylesheets_by_file);
+  while (g_hash_table_iter_next (&iter, NULL, (gpointer) &sheet))
+    {
+      StyleSheetData *sheet_data = cr_stylesheet_get_app_data (sheet);
+
+      if (sheet_data && sheet_data->extension_stylesheet)
+        add_matched_properties (theme, sheet, node, props);
+    }
 
   /* We count on a stable sort here so that later declarations come
    * after earlier declarations */
