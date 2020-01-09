@@ -876,11 +876,24 @@ class DateMenuButton extends PanelMenu.Button {
         // Done with hbox for calendar and event list
 
         this._clock = new GnomeDesktop.WallClock();
+        /*
+         * Extra _clock.ref() is required to stop toggle references from
+         * triggering garbage collection every time the clock emits a tick.
+         */
+        this._clock.ref();
         this._clock.bind_property('clock', this._clockDisplay, 'text', GObject.BindingFlags.SYNC_CREATE);
-        this._clock.connect('notify::timezone', this._updateTimeZone.bind(this));
+        this._timezoneChangedId = this._clock.connect('notify::timezone', this._updateTimeZone.bind(this));
 
         Main.sessionMode.connect('updated', this._sessionUpdated.bind(this));
         this._sessionUpdated();
+
+        this.connect('destroy', this._onDestroy.bind(this));
+    }
+
+    _onDestroy() {
+        this._clock.disconnect(this._timezoneChangedId);
+        this._clock.unref();
+        this._clock = null;
     }
 
     _getEventSource() {

@@ -338,7 +338,12 @@ class UnlockDialogClock extends St.BoxLayout {
         this.add_child(this._hint);
 
         this._wallClock = new GnomeDesktop.WallClock({ time_only: true });
-        this._wallClock.connect('notify::clock', this._updateClock.bind(this));
+        /*
+         * Extra _wallClock.ref() is required to stop toggle references from
+         * triggering garbage collection every time the clock emits a tick.
+         */
+        this._wallClock.ref();
+        this._notifyClockId = this._wallClock.connect('notify::clock', this._updateClock.bind(this));
 
         this._seat = Clutter.get_default_backend().get_default_seat();
         this._touchModeChangedId = this._seat.connect('notify::touch-mode',
@@ -379,7 +384,9 @@ class UnlockDialogClock extends St.BoxLayout {
     }
 
     _onDestroy() {
-        this._wallClock.run_dispose();
+        this._wallClock.disconnect(this._notifyClockId);
+        this._wallClock.unref();
+        this._wallClock = null;
 
         this._seat.disconnect(this._touchModeChangedId);
         this._idleMonitor.remove_watch(this._idleWatchId);
