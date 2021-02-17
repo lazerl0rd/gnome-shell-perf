@@ -228,9 +228,8 @@ cr_doc_handler_unref (CRDocHandler * a_this)
 {
         g_return_val_if_fail (a_this, FALSE);
 
-        if (a_this->ref_count > 0) {
-                a_this->ref_count--;
-        }
+        g_assert (a_this->ref_count > 0);
+        a_this->ref_count--;
 
         if (a_this->ref_count == 0) {
                 cr_doc_handler_destroy (a_this);

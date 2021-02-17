@@ -237,9 +237,8 @@ cr_selector_unref (CRSelector * a_this)
 {
         g_return_val_if_fail (a_this, FALSE);
 
-        if (a_this->ref_count) {
-                a_this->ref_count--;
-        }
+        g_assert (a_this->ref_count > 0);
+        a_this->ref_count--;
 
         if (a_this->ref_count == 0) {
                 cr_selector_destroy (a_this);

@@ -179,8 +179,9 @@ cr_cascade_unref (CRCascade * a_this)
 {
         g_return_if_fail (a_this && PRIVATE (a_this));
 
-        if (PRIVATE (a_this)->ref_count)
-                PRIVATE (a_this)->ref_count--;
+        g_assert (PRIVATE (a_this)->ref_count > 0);
+        PRIVATE (a_this)->ref_count--;
+
         if (!PRIVATE (a_this)->ref_count) {
                 cr_cascade_destroy (a_this);
         }
