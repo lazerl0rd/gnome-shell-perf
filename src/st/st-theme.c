@@ -265,7 +265,7 @@ st_theme_load_stylesheet (StTheme    *theme,
                           GFile      *file,
                           GError    **error)
 {
-  CRStyleSheet *stylesheet;
+  g_autoptr(CRStyleSheet) stylesheet = NULL;
 
   stylesheet = parse_stylesheet (file, error);
   if (!stylesheet)
@@ -274,8 +274,8 @@ st_theme_load_stylesheet (StTheme    *theme,
   cr_stylesheet_set_app_data (stylesheet, GUINT_TO_POINTER (TRUE), NULL);
 
   insert_stylesheet (theme, file, stylesheet);
-  cr_stylesheet_ref (stylesheet);
-  theme->custom_stylesheets = g_slist_prepend (theme->custom_stylesheets, stylesheet);
+  theme->custom_stylesheets = g_slist_prepend (theme->custom_stylesheets,
+                                               g_steal_pointer (&stylesheet));
   g_signal_emit (theme, signals[STYLESHEETS_CHANGED], 0);
 
   return TRUE;
@@ -345,9 +345,9 @@ static void
 st_theme_constructed (GObject *object)
 {
   StTheme *theme = ST_THEME (object);
-  CRStyleSheet *application_stylesheet;
-  CRStyleSheet *theme_stylesheet;
-  CRStyleSheet *default_stylesheet;
+  g_autoptr(CRStyleSheet) application_stylesheet = NULL;
+  g_autoptr(CRStyleSheet) theme_stylesheet = NULL;
+  g_autoptr(CRStyleSheet) default_stylesheet = NULL;
 
   G_OBJECT_CLASS (st_theme_parent_class)->constructed (object);
 
@@ -903,7 +903,7 @@ add_matched_properties (StTheme      *a_this,
                 if (import_rule->sheet)
                   {
                     insert_stylesheet (a_this, file, import_rule->sheet);
-                    /* refcount of stylesheets starts off at zero, so we don't need to unref! */
+                    cr_stylesheet_unref (import_rule->sheet);
                   }
                 else
                   {
