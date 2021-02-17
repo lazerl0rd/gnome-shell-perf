@@ -94,6 +94,7 @@ cr_declaration_new (CRStatement * a_statement,
         memset (result, 0, sizeof (CRDeclaration));
         result->property = a_property;
         result->value = a_value;
+        result->ref_count = 1;
 
         if (a_value) {
                 cr_term_ref (a_value);
@@ -145,7 +146,7 @@ cr_declaration_parse_from_buf (CRStatement * a_statement,
         result = cr_declaration_new (a_statement, property, value);
         if (result) {
                 property = NULL;
-                value = NULL;
+                g_clear_pointer (&value, cr_term_unref);
                 result->important = important;
         }
 
@@ -216,7 +217,7 @@ cr_declaration_parse_list_from_buf (const guchar * a_str,
         result = cr_declaration_new (NULL, property, value);
         if (result) {
                 property = NULL;
-                value = NULL;
+                g_clear_pointer (&value, cr_term_unref);
                 result->important = important;
         }
         /*now, go parse the other declarations */
@@ -248,10 +249,9 @@ cr_declaration_parse_list_from_buf (const guchar * a_str,
                 cur_decl = cr_declaration_new (NULL, property, value);
                 if (cur_decl) {
                         cur_decl->important = important;
-                        result = cr_declaration_append (result, cur_decl);
+                        result = cr_declaration_append (result, g_steal_pointer (&cur_decl));
+                        g_clear_pointer (&value, cr_term_unref);
                         property = NULL;
-                        value = NULL;
-                        cur_decl = NULL;
                 } else {
                         break;
                 }

@@ -47,6 +47,7 @@ cr_selector_new (CRSimpleSel * a_simple_sel)
         }
         memset (result, 0, sizeof (CRSelector));
         result->simple_sel = a_simple_sel;
+        result->ref_count = 1;
         return result;
 }
 
@@ -134,7 +135,7 @@ cr_selector_append_simple_sel (CRSelector * a_this,
         selector = cr_selector_new (a_simple_sel);
         g_return_val_if_fail (selector, NULL);
 
-        return cr_selector_append (a_this, selector);
+        return cr_selector_append (a_this, g_steal_pointer (&selector));
 }
 
 guchar *

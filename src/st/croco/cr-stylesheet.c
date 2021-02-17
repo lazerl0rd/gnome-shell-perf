@@ -77,6 +77,7 @@ cr_stylesheet_new (CRStatement * a_stmts)
                 return NULL;
         }
         memset (PRIVATE (result), 0, sizeof (CRStyleSheetPriv));
+        PRIVATE (result)->ref_count = 1;
 
         return result;
 }

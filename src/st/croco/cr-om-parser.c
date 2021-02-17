@@ -1062,13 +1062,12 @@ cr_om_parser_parse_paths_to_cascade (CROMParser * a_this,
                 }
         }
         result = cr_cascade_new (sheets[0], sheets[1], sheets[2]);
-        if (!result) {
-                for (i = 0; i < 3; i++) {
-                        cr_stylesheet_unref (sheets[i]);
-                        sheets[i] = 0;
-                }
+        for (i = 0; i < 3; i++)
+                g_clear_pointer (&sheets[i], cr_stylesheet_unref);
+
+        if (!result)
                 return CR_ERROR;
-        }
+
         *a_result = result;
         return CR_OK;
 }

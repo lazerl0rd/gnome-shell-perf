@@ -204,7 +204,8 @@ parse_page_property_cb (CRDocHandler * a_this,
         g_return_if_fail (decl);
         decl->important = a_important;
         stmt->kind.page_rule->decl_list =
-                cr_declaration_append (stmt->kind.page_rule->decl_list, decl);
+                cr_declaration_append (stmt->kind.page_rule->decl_list,
+                                       g_steal_pointer (&decl));
         g_return_if_fail (stmt->kind.page_rule->decl_list);
 }
 

@@ -92,6 +92,7 @@ cr_term_new (void)
                 return NULL;
         }
         memset (result, 0, sizeof (CRTerm));
+        result->ref_count = 1;
         return result;
 }
 

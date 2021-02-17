@@ -80,6 +80,7 @@ cr_cascade_new (CRStyleSheet * a_author_sheet,
                 return NULL;
         }
         memset (PRIVATE (result), 0, sizeof (CRCascadePriv));
+        PRIVATE (result)->ref_count = 1;
 
         if (a_author_sheet) {
                 cr_cascade_set_sheet (result, a_author_sheet, ORIGIN_AUTHOR);
