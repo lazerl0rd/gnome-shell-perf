@@ -86,7 +86,7 @@ gint cr_stylesheet_nr_rules (CRStyleSheet const *a_this) ;
 
 CRStatement * cr_stylesheet_statement_get_from_list (CRStyleSheet *a_this, int itemnr) ;
 
-void cr_stylesheet_ref (CRStyleSheet *a_this) ;
+CRStyleSheet * cr_stylesheet_ref (CRStyleSheet *a_this) ;
 
 gboolean cr_stylesheet_unref (CRStyleSheet *a_this) ;
 
