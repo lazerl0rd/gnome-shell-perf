@@ -207,7 +207,7 @@ parse_stylesheet (GFile   *file,
     }
 
   /* Extension stylesheet */
-  stylesheet->app_data = GUINT_TO_POINTER (FALSE);
+  cr_stylesheet_set_app_data (stylesheet, GUINT_TO_POINTER (FALSE), NULL);
 
   return stylesheet;
 }
@@ -271,7 +271,7 @@ st_theme_load_stylesheet (StTheme    *theme,
   if (!stylesheet)
     return FALSE;
 
-  stylesheet->app_data = GUINT_TO_POINTER (TRUE);
+  cr_stylesheet_set_app_data (stylesheet, GUINT_TO_POINTER (TRUE), NULL);
 
   insert_stylesheet (theme, file, stylesheet);
   cr_stylesheet_ref (stylesheet);
@@ -979,8 +979,9 @@ add_matched_properties (StTheme      *a_this,
 static inline int
 get_origin (const CRDeclaration * decl)
 {
-  enum CRStyleOrigin origin = decl->parent_statement->parent_sheet->origin;
-  gboolean is_extension_sheet = GPOINTER_TO_UINT (decl->parent_statement->parent_sheet->app_data);
+  CRStyleSheet *stylesheet = decl->parent_statement->parent_sheet;
+  enum CRStyleOrigin origin = stylesheet->origin;
+  gboolean is_extension_sheet = GPOINTER_TO_UINT (cr_stylesheet_get_app_data (stylesheet));
 
   if (decl->important)
     origin += ORIGIN_OFFSET_IMPORTANT;

@@ -35,6 +35,16 @@ struct _CRStyleSheetPriv {
          *cr_stylesheet_unref()
         */
         gulong ref_count;
+
+        /**
+         *custom application data pointer
+         *Can be used by applications.
+         *libcroco itself will handle its destruction
+         *if app_data_destroy_func is set via
+         *cr_stylesheet_set_app_data().
+         */
+        gpointer app_data;
+        GDestroyNotify app_data_destroy_func;
 };
 
 #define PRIVATE(obj) ((obj)->priv)
@@ -182,6 +192,15 @@ cr_stylesheet_unref (CRStyleSheet * a_this)
         return FALSE;
 }
 
+static void
+cleanup_app_data (CRStyleSheetPriv * priv)
+{
+        if (priv->app_data_destroy_func) {
+                g_clear_pointer (&priv->app_data, priv->app_data_destroy_func);
+                priv->app_data_destroy_func = NULL;
+        }
+}
+
 /**
  *Destructor of the #CRStyleSheet class.
  *@param a_this the current instance of the #CRStyleSheet class.
@@ -196,8 +215,33 @@ cr_stylesheet_destroy (CRStyleSheet * a_this)
                 a_this->statements = NULL;
         }
         if (PRIVATE (a_this)) {
+                cleanup_app_data (PRIVATE (a_this));
                 g_free (PRIVATE (a_this));
                 PRIVATE (a_this) = NULL;
         }
         g_free (a_this);
+}
+
+void
+cr_stylesheet_set_app_data (CRStyleSheet   * a_this,
+                            gpointer         app_data,
+                            GDestroyNotify   app_data_destroy_func)
+{
+        CRStyleSheetPriv * priv;
+
+        g_return_if_fail (a_this && PRIVATE (a_this));
+
+        priv = PRIVATE (a_this);
+        cleanup_app_data (priv);
+
+        priv->app_data = app_data;
+        priv->app_data_destroy_func = app_data_destroy_func;
+}
+
+gpointer
+cr_stylesheet_get_app_data (CRStyleSheet *a_this)
+{
+        g_return_val_if_fail (a_this && PRIVATE (a_this), NULL);
+
+        return PRIVATE (a_this)->app_data;
 }
