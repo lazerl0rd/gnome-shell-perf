@@ -28,6 +28,17 @@
  *The definition of the #CRStyleSheet class
  */
 
+struct _CRStyleSheetPriv {
+        /**
+         *the reference count of this instance of #CRStyleSheet.
+         *It can be manipulated with cr_stylesheet_ref() and
+         *cr_stylesheet_unref()
+        */
+        gulong ref_count;
+};
+
+#define PRIVATE(obj) ((obj)->priv)
+
 /**
  *Constructor of the #CRStyleSheet class.
  *@param the initial list of css statements.
@@ -48,6 +59,14 @@ cr_stylesheet_new (CRStatement * a_stmts)
 
         if (a_stmts)
                 result->statements = a_stmts;
+
+        PRIVATE (result) = g_try_malloc (sizeof (CRStyleSheetPriv));
+        if (!PRIVATE (result)) {
+                cr_utils_trace_info ("Out of memory");
+                g_free (result);
+                return NULL;
+        }
+        memset (PRIVATE (result), 0, sizeof (CRStyleSheetPriv));
 
         return result;
 }
@@ -140,20 +159,20 @@ cr_stylesheet_statement_get_from_list (CRStyleSheet * a_this, int itemnr)
 void
 cr_stylesheet_ref (CRStyleSheet * a_this)
 {
-        g_return_if_fail (a_this);
+        g_return_if_fail (a_this && PRIVATE (a_this));
 
-        a_this->ref_count++;
+        PRIVATE (a_this)->ref_count++;
 }
 
 gboolean
 cr_stylesheet_unref (CRStyleSheet * a_this)
 {
-        g_return_val_if_fail (a_this, FALSE);
+        g_return_val_if_fail (a_this && PRIVATE (a_this), FALSE);
 
-        if (a_this->ref_count)
-                a_this->ref_count--;
+        if (PRIVATE (a_this)->ref_count)
+                PRIVATE (a_this)->ref_count--;
 
-        if (!a_this->ref_count) {
+        if (!PRIVATE (a_this)->ref_count) {
                 cr_stylesheet_destroy (a_this);
                 return TRUE;
         }
@@ -173,6 +192,10 @@ cr_stylesheet_destroy (CRStyleSheet * a_this)
         if (a_this->statements) {
                 cr_statement_destroy (a_this->statements);
                 a_this->statements = NULL;
+        }
+        if (PRIVATE (a_this)) {
+                g_free (PRIVATE (a_this));
+                PRIVATE (a_this) = NULL;
         }
         g_free (a_this);
 }

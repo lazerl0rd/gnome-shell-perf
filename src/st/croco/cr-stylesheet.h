@@ -34,6 +34,7 @@ G_BEGIN_DECLS
  *The declaration of the #CRStyleSheet class.
  */
 
+typedef struct _CRStyleSheetPriv CRStyleSheetPriv;
 
 enum CRStyleOrigin
 {
@@ -56,6 +57,8 @@ enum CRStyleOrigin
  */
 struct _CRStyleSheet
 {
+        CRStyleSheetPriv *priv;
+
 	/**The css statements list*/
 	CRStatement *statements ;
 
@@ -72,14 +75,6 @@ struct _CRStyleSheet
 	 *Can be used by applications.
 	 */
 	gpointer app_data ;
-
-	/**
-	 *the reference count of this instance
-	 *Please, don't never ever modify it
-	 *directly. Use cr_stylesheet_ref()
-	 *and cr_stylesheet_unref() instead.
-	 */
-	gulong ref_count ;
 } ;
 
 CRStyleSheet * cr_stylesheet_new (CRStatement *a_stmts) ;
