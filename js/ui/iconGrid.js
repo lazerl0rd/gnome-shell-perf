@@ -230,23 +230,6 @@ function zoomOutActorAtPos(actor, x, y) {
     });
 }
 
-function animateIconPosition(icon, box, nChangedIcons) {
-    if (!icon.has_allocation() || icon.allocation.equal(box) || icon.opacity === 0) {
-        icon.allocate(box);
-        return false;
-    }
-
-    icon.save_easing_state();
-    icon.set_easing_mode(Clutter.AnimationMode.EASE_OUT_QUAD);
-    icon.set_easing_delay(nChangedIcons * ICON_POSITION_DELAY);
-
-    icon.allocate(box);
-
-    icon.restore_easing_state();
-
-    return true;
-}
-
 function swap(value, length) {
     return length - value - 1;
 }
@@ -779,8 +762,6 @@ var IconGridLayout = GObject.registerClass({
         const [leftEmptySpace, topEmptySpace, hSpacing, vSpacing] =
             this._calculateSpacing(childSize);
 
-        const childBox = new Clutter.ActorBox();
-
         let nChangedIcons = 0;
         const columnsPerPage = this.columnsPerPage;
         const orientation = this._orientation;
@@ -818,17 +799,22 @@ var IconGridLayout = GObject.registerClass({
                     break;
                 }
 
-                childBox.set_origin(Math.floor(x), Math.floor(y));
+                const shouldEase = shouldEaseItems && !pageSizeChanged &&
+                    item.has_allocation() && item.opacity !== 0;
 
-                const [,, naturalWidth, naturalHeight] = item.get_preferred_size();
-                childBox.set_size(
-                    Math.max(childSize, naturalWidth),
-                    Math.max(childSize, naturalHeight));
+                if (shouldEase) {
+                    item.save_easing_state();
+                    item.set_easing_mode(Clutter.AnimationMode.EASE_OUT_QUAD);
+                    item.set_easing_delay(nChangedIcons * ICON_POSITION_DELAY);
+                }
 
-                if (!shouldEaseItems || pageSizeChanged)
-                    item.allocate(childBox);
-                else if (animateIconPosition(item, childBox, nChangedIcons))
-                    nChangedIcons++;
+                item.allocate_preferred_size(Math.floor(x), Math.floor(y));
+
+                if (shouldEase) {
+                    item.restore_easing_state();
+                    if (item.get_transition('allocation'))
+                        nChangedIcons++;
+                }
             });
         });
 
