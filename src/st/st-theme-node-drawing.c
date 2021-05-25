@@ -2178,16 +2178,21 @@ st_theme_node_paint_sliced_shadow (StThemeNodePaintState *state,
       rectangles[idx++] = s_bottom;
     }
 
-  /* Center middle */
-  rectangles[idx++] = left;
-  rectangles[idx++] = top;
-  rectangles[idx++] = right;
-  rectangles[idx++] = bottom;
+  /* Center middle is visible? */
+  if (paint_opacity < 255 ||
+      xoffset > shadow_blur_radius || left < 0 ||
+      yoffset > shadow_blur_radius || top < 0)
+    {
+      rectangles[idx++] = left;
+      rectangles[idx++] = top;
+      rectangles[idx++] = right;
+      rectangles[idx++] = bottom;
 
-  rectangles[idx++] = s_left;
-  rectangles[idx++] = s_top;
-  rectangles[idx++] = s_right;
-  rectangles[idx++] = s_bottom;
+      rectangles[idx++] = s_left;
+      rectangles[idx++] = s_top;
+      rectangles[idx++] = s_right;
+      rectangles[idx++] = s_bottom;
+    }
 
   if (xend > right)
     {
