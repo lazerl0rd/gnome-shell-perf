@@ -933,6 +933,7 @@ class WorkspaceBackground extends St.Widget {
             layout_manager: new Clutter.BinLayout(),
             x_expand: true,
             y_expand: true,
+            always_occluded: true,
         });
 
         this._monitorIndex = monitorIndex;
