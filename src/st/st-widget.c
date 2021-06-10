@@ -299,8 +299,12 @@ static StThemeNodePaintState *
 current_paint_state (StWidget *widget)
 {
   StWidgetPrivate *priv = st_widget_get_instance_private (widget);
+  StThemeNodePaintState *state;
 
-  return &priv->paint_states[priv->current_paint_state];
+  state = &priv->paint_states[priv->current_paint_state];
+  state->always_occluded = st_widget_get_always_occluded (widget);
+
+  return state;
 }
 
 static void

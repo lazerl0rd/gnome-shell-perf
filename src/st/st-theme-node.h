@@ -169,6 +169,8 @@ struct _StThemeNodePaintState {
 
   float resource_scale;
 
+  gboolean always_occluded;
+
   CoglPipeline *box_shadow_pipeline;
   CoglPipeline *prerendered_texture;
   CoglPipeline *prerendered_pipeline;

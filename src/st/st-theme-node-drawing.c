@@ -1485,7 +1485,8 @@ st_theme_node_render_resources (StThemeNodePaintState *state,
                                 StThemeNode           *node,
                                 float                  width,
                                 float                  height,
-                                float                  resource_scale)
+                                float                  resource_scale,
+                                gboolean               always_occluded)
 {
   gboolean has_border;
   gboolean has_border_radius;
@@ -1505,6 +1506,7 @@ st_theme_node_render_resources (StThemeNodePaintState *state,
   state->alloc_width = width;
   state->alloc_height = height;
   state->resource_scale = resource_scale;
+  state->always_occluded = always_occluded;
 
   _st_theme_node_ensure_background (node);
   _st_theme_node_ensure_geometry (node);
@@ -1721,6 +1723,9 @@ st_theme_node_paint_borders (StThemeNodePaintState *state,
   ClutterColor border_color;
   guint8 alpha;
   gboolean corners_are_transparent;
+
+  if (mode == ST_PAINT_BORDERS_MODE_COLOR && state->always_occluded)
+    return;
 
   width = box->x2 - box->x1;
   height = box->y2 - box->y1;
@@ -2181,7 +2186,8 @@ st_theme_node_paint_sliced_shadow (StThemeNodePaintState *state,
   /* Center middle is visible? */
   if (paint_opacity < 255 ||
       xoffset > shadow_blur_radius || left < 0 ||
-      yoffset > shadow_blur_radius || top < 0)
+      yoffset > shadow_blur_radius || top < 0 ||
+      !state->always_occluded)
     {
       rectangles[idx++] = left;
       rectangles[idx++] = top;
@@ -2614,7 +2620,7 @@ st_theme_node_paint (StThemeNode           *node,
           fabsf (resource_scale - state->resource_scale) < FLT_EPSILON)
         st_theme_node_paint_state_copy (state, &node->cached_state);
       else
-        st_theme_node_render_resources (state, node, width, height, resource_scale);
+        st_theme_node_render_resources (state, node, width, height, resource_scale, state->always_occluded);
 
       node->rendered_once = TRUE;
     }
@@ -2799,6 +2805,7 @@ st_theme_node_paint_state_init (StThemeNodePaintState *state)
   state->alloc_height = 0;
   state->resource_scale = -1;
   state->node = NULL;
+  state->always_occluded = FALSE;
   state->box_shadow_pipeline = NULL;
   state->prerendered_texture = NULL;
   state->prerendered_pipeline = NULL;
@@ -2823,6 +2830,7 @@ st_theme_node_paint_state_copy (StThemeNodePaintState *state,
   state->alloc_width = other->alloc_width;
   state->alloc_height = other->alloc_height;
   state->resource_scale = other->resource_scale;
+  state->always_occluded = other->always_occluded;
   state->box_shadow_width = other->box_shadow_width;
   state->box_shadow_height = other->box_shadow_height;
 
