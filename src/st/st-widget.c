@@ -72,6 +72,7 @@ struct _StWidgetPrivate
   guint track_hover : 1;
   guint hover : 1;
   guint can_focus : 1;
+  guint always_occluded : 1;
 
   gulong texture_file_changed_id;
   guint update_child_styles_id;
@@ -114,6 +115,7 @@ enum
   PROP_LABEL_ACTOR,
   PROP_ACCESSIBLE_ROLE,
   PROP_ACCESSIBLE_NAME,
+  PROP_ALWAYS_OCCLUDED,
 
   N_PROPS
 };
@@ -197,6 +199,10 @@ st_widget_set_property (GObject      *gobject,
       st_widget_set_accessible_name (actor, g_value_get_string (value));
       break;
 
+    case PROP_ALWAYS_OCCLUDED:
+      st_widget_set_always_occluded (actor, g_value_get_boolean (value));
+      break;
+
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (gobject, prop_id, pspec);
       break;
@@ -248,6 +254,10 @@ st_widget_get_property (GObject    *gobject,
 
     case PROP_ACCESSIBLE_NAME:
       g_value_set_string (value, priv->accessible_name);
+      break;
+
+    case PROP_ALWAYS_OCCLUDED:
+      g_value_set_boolean (value, priv->always_occluded);
       break;
 
     default:
@@ -1012,6 +1022,20 @@ st_widget_class_init (StWidgetClass *klass)
                           "Object instance's name for assistive technology access.",
                           NULL,
                           ST_PARAM_READWRITE);
+
+  /**
+   * StWidget:always-occluded
+   *
+   * Whether or not the widget is always covered by other rendering (and so
+   * backgrounds and shadow-centers need not be rendered). This is useful for
+   * when you only need to see the shadow penumbra.
+   */
+  props[PROP_ALWAYS_OCCLUDED] =
+     g_param_spec_boolean ("always-occluded",
+                           "Always occluded",
+                           "Whether the widget's allocation box is covered by other rendering",
+                           FALSE,
+                           ST_PARAM_READWRITE);
 
   g_object_class_install_properties (gobject_class, N_PROPS, props);
 
@@ -1967,6 +1991,31 @@ st_widget_get_can_focus (StWidget *widget)
   g_return_val_if_fail (ST_IS_WIDGET (widget), FALSE);
 
   return ST_WIDGET_PRIVATE (widget)->can_focus;
+}
+
+void
+st_widget_set_always_occluded (StWidget *widget,
+                               gboolean  always_occluded)
+{
+  StWidgetPrivate *priv;
+
+  g_return_if_fail (ST_IS_WIDGET (widget));
+
+  priv = st_widget_get_instance_private (widget);
+
+  if (priv->always_occluded != always_occluded)
+    {
+      priv->always_occluded = always_occluded;
+      g_object_notify_by_pspec (G_OBJECT (widget), props[PROP_ALWAYS_OCCLUDED]);
+    }
+}
+
+gboolean
+st_widget_get_always_occluded (StWidget *widget)
+{
+  g_return_val_if_fail (ST_IS_WIDGET (widget), FALSE);
+
+  return ST_WIDGET_PRIVATE (widget)->always_occluded;
 }
 
 /**

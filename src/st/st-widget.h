@@ -128,6 +128,9 @@ void                  st_widget_ensure_style              (StWidget        *widg
 void                  st_widget_set_can_focus             (StWidget        *widget,
                                                            gboolean         can_focus);
 gboolean              st_widget_get_can_focus             (StWidget        *widget);
+void                  st_widget_set_always_occluded       (StWidget        *widget,
+                                                           gboolean         always_occluded);
+gboolean              st_widget_get_always_occluded       (StWidget        *widget);
 gboolean              st_widget_navigate_focus            (StWidget        *widget,
                                                            ClutterActor    *from,
                                                            StDirectionType  direction,
